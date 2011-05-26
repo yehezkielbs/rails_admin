@@ -9,7 +9,7 @@ module RailsAdmin
       return "high" if percent.between?(68, 100)
     end
 
-    def get_column_set(properties)
+    def get_column_set(properties, current_set = nil)
       sets = calculate_width(properties)
       current_set ||= params[:set].to_i
 

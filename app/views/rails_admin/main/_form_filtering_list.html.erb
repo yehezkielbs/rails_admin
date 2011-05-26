@@ -1,0 +1,98 @@
+<% config = field.associated_model_config %>
+<% abstract_model = config.abstract_model %>
+
+<% sort_param = "#{field.name}_sort".to_sym %>
+<% sort_reverse_param = "#{field.name}_sort_reverse".to_sym %>
+<% sort = params[sort_param] %>
+<% sort_reverse = params[sort_reverse_param] %>
+
+<% selected = field.bindings[:object].send(field.association[:name]) %>
+
+<% if !sort.blank? %>
+    <% selected = selected.all(:order => sort + (sort_reverse == 'true' ? ' DESC' : ' ASC')) %>
+<% end %>
+
+<% selected_count = selected.size %>
+
+<% set_param = "#{field.name}_set".to_sym %>
+
+<% properties = config.list.visible_fields.map { |property| property.with(:view => self) } %>
+<% style, other, properties = get_column_set(properties, params[set_param].to_i) %>
+
+<% head_style('rails_admin/list') %>
+
+<div class="ra-block">
+  <div class="ra-block-content">
+    <table class="grid">
+
+      <thead>
+      <tr>
+        <th class="other left" style="<%= other.include?('left') ? 'display: none' : '' %>">...</th>
+        <% properties.each do |property| %>
+            <% property_name = property.name %>
+            <% property_pretty_name = property.label %>
+            <% sorted_property = (sort == property_name.to_s) %>
+            <th class="<%= property.css_class %> <%= sorted_property ? 'selected' : '' %>">
+              <% if property.sortable? %>
+                  <% sort_location = rails_admin_edit_path(params.merge(:model_name => @abstract_model.to_param, :id => @object.id, sort_param => property_name).reject { |key, value| key.to_sym == sort_reverse_param }.merge(selected && sort_reverse != 'true' ? {sort_reverse_param => 'true'} : {})) %>
+                  <% sort_direction = sorted_property ? (sort_reverse ? 'ascending' : 'descending') : nil %>
+                  <%= link_to(property_pretty_name.upcase, sort_location, :class => sort_direction) %>
+              <% else %>
+                  <%= property_pretty_name.upcase %>
+              <% end %>
+            </th>
+        <% end %>
+        <th class="other right" style="<%= other.include?('right') ? 'display: none' : '' %>">...</th>
+        <th class="action"><%= t("admin.list.edit_action").upcase if authorized?(:edit, abstract_model) %></th>
+        <% if authorized?(:delete, abstract_model) %>
+            <th class="action"><%= t("admin.list.delete_action").upcase %></th>
+        <% end %>
+      </tr>
+      </thead>
+
+      <tfoot>
+      <tr>
+        <td colspan="<%= properties.length + 3 + (authorized?(:delete, abstract_model) ? 1 : 0) %>">
+          <div class="pagination">
+            <!-- TODO : make pagination work-->
+            <%= selected_count %>
+            <%= config.abstract_model.model.model_name.human(:count => selected_count, :default => selected_count != 1 ? config.label.downcase.pluralize : config.label.downcase) %>
+          </div>
+        </td>
+      </tr>
+      </tfoot>
+
+      <tbody>
+      <% if selected_count > 0 %>
+          <% selected.each_with_index do |object, index| %>
+              <tr class="<%= index % 2 == 0 ? 'odd' : 'even' %>">
+                <% other_left = rails_admin_edit_path(params.merge(:model_name => @abstract_model.to_param, :id => @object.id).reject { |key, value| key == set_param }.merge(set_param => params[set_param].to_i - 1)) %>
+                <td class="other left" <% if other.include? 'left' %>style="display: none" <% end %>>
+                  <%= link_to('...', other_left) %>
+                </td>
+
+                <% properties.map { |property| property.bind(:object, object) }.each do |property| %>
+                    <td class="#{property.css_class}"><%= [:text, :string].include?(property.type) ? property.formatted_value[0..40] : property.formatted_value %></td>
+                <% end %>
+
+                <% other_right = rails_admin_edit_path(params.merge(:model_name => @abstract_model.to_param, :id => @object.id).reject { |key, value| key == set_param }.merge(set_param => params[set_param].to_i + 1)) %>
+                <td class="other right" <% if other.include? 'right' %>style="display: none" <% end %>>
+                  <%= link_to('...', other_right) %>
+                </td>
+
+                <td class="action edit">
+                  <%= link_to(t("admin.list.edit_action"), rails_admin_edit_path(:model_name => abstract_model.to_param, :id => object.id)) if authorized? :edit, abstract_model, object %>
+                </td>
+                <% if authorized?(:delete, abstract_model) %>
+                    <td class="action delete">
+                      <%= link_to(t("admin.list.delete_action"), rails_admin_delete_path(:model_name => abstract_model.to_param, :id => object.id)) if authorized? :delete, abstract_model, object %>
+                    </td>
+                <% end %>
+              </tr>
+          <% end %>
+      <% end %>
+      </tbody>
+
+    </table>
+  </div>
+</div>
