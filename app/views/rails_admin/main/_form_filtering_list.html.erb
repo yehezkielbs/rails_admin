@@ -1,18 +1,29 @@
 <% config = field.associated_model_config %>
 <% abstract_model = config.abstract_model %>
 
+<% selected = field.bindings[:object].send(field.association[:name]) %>
+<% selected_count = selected.count %>
+
+<% options = {} %>
+
 <% sort_param = "#{field.name}_sort".to_sym %>
 <% sort_reverse_param = "#{field.name}_sort_reverse".to_sym %>
 <% sort = params[sort_param] %>
 <% sort_reverse = params[sort_reverse_param] %>
 
-<% selected = field.bindings[:object].send(field.association[:name]) %>
-
 <% if !sort.blank? %>
-    <% selected = selected.all(:order => sort + (sort_reverse == 'true' ? ' DESC' : ' ASC')) %>
+    <% options[:order] = sort + (sort_reverse == 'true' ? ' DESC' : ' ASC') %>
 <% end %>
 
-<% selected_count = selected.size %>
+<% items_per_page = config.list.items_per_page || RailsAdmin::Config::Sections::List.default_items_per_page %>
+<% current_page_param = "#{field.name}_page".to_sym %>
+<% current_page = params[current_page_param].to_i %>
+<% current_page = 1 if current_page <= 0 %>
+<% page_count = (selected.count.to_f / items_per_page).ceil %>
+<% options[:limit] = items_per_page %>
+<% options[:offset] = (current_page - 1) * items_per_page %>
+
+<% selected = selected.all(options)  %>
 
 <% set_param = "#{field.name}_set".to_sym %>
 
@@ -54,7 +65,9 @@
       <tr>
         <td colspan="<%= properties.length + 3 + (authorized?(:delete, abstract_model) ? 1 : 0) %>">
           <div class="pagination">
-            <!-- TODO : make pagination work-->
+            <% if page_count.to_i > 1 %>
+              <%= paginate(current_page, page_count, :url => params.reject {|k,v| %w(controller action model_name id).include?(k)}, :page_param => current_page_param.to_s, :remote => false).html_safe %>
+            <% end %>
             <%= selected_count %>
             <%= config.abstract_model.model.model_name.human(:count => selected_count, :default => selected_count != 1 ? config.label.downcase.pluralize : config.label.downcase) %>
           </div>
